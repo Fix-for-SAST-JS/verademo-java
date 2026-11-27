@@ -169,7 +169,12 @@ public class UserController {
 
 					// Did we find exactly 1 user that matched?
 					if (result.first() && BCrypt.checkpw(password, result.getString("password"))) {
-						logger.info("User Found.");
+						try {
+							String safeUsername = URLEncoder.encode(username, "UTF-8");
+							logger.info("User Found: " + safeUsername);
+						} catch (UnsupportedEncodingException e) {
+							logger.info("User Found [encoding error]");
+						}
 						// Remember the username as a courtesy.
 						Utils.setUsernameCookie(response, result.getString("username"));
 
@@ -251,10 +256,12 @@ public class UserController {
 							} catch (UnsupportedEncodingException e) {
 								logger.info("Password hint found for username: [encoding error]");
 							}
+							// Encode password hint to prevent XSS
+							String safePassword = Encode.forHtml(password);
 							return String.format(
 									formatString,
-									password,
-									String.format("%0" + (password.length() - 2) + "d", 0).replace("0", "*"));
+									safePassword,
+									String.format("%0" + (safePassword.length() - 2) + "d", 0).replace("0", "*"));
 						} else {
 							return "No password found for " + Encode.forHtml(username);
 						}
@@ -961,7 +968,8 @@ public class UserController {
 			message.setSubject(sanitizedMessage);
 			/* END EXAMPLE VULNERABILITY */
 
-			message.setText(t.getMessage() + "<br>" + properties.getProperty("test") + displayErrorForWeb(t));
+			// Sanitize message body to prevent information exposure
+			message.setText("An error occurred in the application. Error type: " + (t != null ? t.getClass().getSimpleName() : "Unknown"));
 
 			logger.info("Sending email to admin");
 			Transport.send(message);
