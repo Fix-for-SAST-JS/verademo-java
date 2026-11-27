@@ -113,7 +113,13 @@ public class UserController {
 			target = "";
 		}
 
-		logger.info("Entering showLogin with username " + username + " and target " + target);
+		try {
+			String safeUsername = URLEncoder.encode(username, "UTF-8");
+			String safeTarget = URLEncoder.encode(target, "UTF-8");
+			logger.info("Entering showLogin with username " + safeUsername + " and target " + safeTarget);
+		} catch (UnsupportedEncodingException e) {
+			logger.info("Entering showLogin [encoding error]");
+		}
 
 		model.addAttribute("username", username);
 		model.addAttribute("target", target);
