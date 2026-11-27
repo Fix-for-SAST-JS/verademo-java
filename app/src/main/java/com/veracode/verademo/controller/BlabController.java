@@ -23,6 +23,7 @@ import com.veracode.verademo.utils.Utils;
 
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
+import org.owasp.encoder.Encode;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -162,22 +163,18 @@ public class BlabController {
 					Blab blab = new Blab();
 					blab.setPostDate(results.getDate(4));
 
-					try {
-						String safeUsername = URLEncoder.encode(results.getString(1), "UTF-8");
-						String safeContent = URLEncoder.encode(results.getString(3), "UTF-8");
-						String safeBlabName = URLEncoder.encode(results.getString(2), "UTF-8");
-						String safeDateString = URLEncoder.encode(blab.getPostDateString(), "UTF-8");
+					String safeUsername = Encode.forHtml(results.getString(1));
+					String safeContent = Encode.forHtml(results.getString(3));
+					String safeBlabName = Encode.forHtml(results.getString(2));
+					String safeDateString = Encode.forHtml(blab.getPostDateString());
 
-						ret.append(String.format(template, safeUsername, // username
-								safeContent, // blab content
-								safeBlabName, // blab name
-								safeDateString, // timestamp
-								results.getInt(6), // blabID
-								results.getInt(5) // comment count
-						));
-					} catch (UnsupportedEncodingException e) {
-						// UTF-8 is always supported, skip this entry
-					}
+					ret.append(String.format(template, safeUsername, // username
+							safeContent, // blab content
+							safeBlabName, // blab name
+							safeDateString, // timestamp
+							results.getInt(6), // blabID
+							results.getInt(5) // comment count
+					));
 				}
 			}
 		} catch (SQLException | ClassNotFoundException ex) {
@@ -461,24 +458,59 @@ public class BlabController {
 		Connection connect = null;
 		PreparedStatement blabberQuery = null;
 
-		/* START EXAMPLE VULNERABILITY */
-		// Validate sort parameter to prevent SQL injection
-		String[] allowedSorts = {"blab_name ASC", "blab_name DESC", "username ASC", "username DESC", "created_at ASC", "created_at DESC"};
-		boolean validSort = false;
-		for (String allowed : allowedSorts) {
-			if (allowed.equals(sort)) {
-				validSort = true;
+		// Map sort parameter to specific SQL queries to prevent SQL injection
+		String blabbersSql;
+		switch (sort) {
+			case "blab_name DESC":
+				blabbersSql = "SELECT users.username, users.blab_name, users.created_at,"
+						+ " SUM(if(listeners.listener=?, 1, 0)) as listeners,"
+						+ " SUM(if(listeners.status='Active',1,0)) as listening"
+						+ " FROM users LEFT JOIN listeners ON users.username = listeners.blabber"
+						+ " WHERE users.username NOT IN (\"admin\",?)"
+						+ " GROUP BY users.username ORDER BY blab_name DESC;";
 				break;
-			}
+			case "username ASC":
+				blabbersSql = "SELECT users.username, users.blab_name, users.created_at,"
+						+ " SUM(if(listeners.listener=?, 1, 0)) as listeners,"
+						+ " SUM(if(listeners.status='Active',1,0)) as listening"
+						+ " FROM users LEFT JOIN listeners ON users.username = listeners.blabber"
+						+ " WHERE users.username NOT IN (\"admin\",?)"
+						+ " GROUP BY users.username ORDER BY username ASC;";
+				break;
+			case "username DESC":
+				blabbersSql = "SELECT users.username, users.blab_name, users.created_at,"
+						+ " SUM(if(listeners.listener=?, 1, 0)) as listeners,"
+						+ " SUM(if(listeners.status='Active',1,0)) as listening"
+						+ " FROM users LEFT JOIN listeners ON users.username = listeners.blabber"
+						+ " WHERE users.username NOT IN (\"admin\",?)"
+						+ " GROUP BY users.username ORDER BY username DESC;";
+				break;
+			case "created_at ASC":
+				blabbersSql = "SELECT users.username, users.blab_name, users.created_at,"
+						+ " SUM(if(listeners.listener=?, 1, 0)) as listeners,"
+						+ " SUM(if(listeners.status='Active',1,0)) as listening"
+						+ " FROM users LEFT JOIN listeners ON users.username = listeners.blabber"
+						+ " WHERE users.username NOT IN (\"admin\",?)"
+						+ " GROUP BY users.username ORDER BY created_at ASC;";
+				break;
+			case "created_at DESC":
+				blabbersSql = "SELECT users.username, users.blab_name, users.created_at,"
+						+ " SUM(if(listeners.listener=?, 1, 0)) as listeners,"
+						+ " SUM(if(listeners.status='Active',1,0)) as listening"
+						+ " FROM users LEFT JOIN listeners ON users.username = listeners.blabber"
+						+ " WHERE users.username NOT IN (\"admin\",?)"
+						+ " GROUP BY users.username ORDER BY created_at DESC;";
+				break;
+			case "blab_name ASC":
+			default:
+				blabbersSql = "SELECT users.username, users.blab_name, users.created_at,"
+						+ " SUM(if(listeners.listener=?, 1, 0)) as listeners,"
+						+ " SUM(if(listeners.status='Active',1,0)) as listening"
+						+ " FROM users LEFT JOIN listeners ON users.username = listeners.blabber"
+						+ " WHERE users.username NOT IN (\"admin\",?)"
+						+ " GROUP BY users.username ORDER BY blab_name ASC;";
+				break;
 		}
-		if (!validSort) {
-			sort = "blab_name ASC"; // default to safe value
-		}
-		String blabbersSql = "SELECT users.username," + " users.blab_name," + " users.created_at,"
-				+ " SUM(if(listeners.listener=?, 1, 0)) as listeners,"
-				+ " SUM(if(listeners.status='Active',1,0)) as listening"
-				+ " FROM users LEFT JOIN listeners ON users.username = listeners.blabber"
-				+ " WHERE users.username NOT IN (\"admin\",?)" + " GROUP BY users.username" + " ORDER BY " + sort + ";";
 
 		try {
 			logger.info("Getting Database connection");
@@ -497,7 +529,6 @@ public class BlabController {
 			blabberQuery.setString(1, username);
 			blabberQuery.setString(2, username);
 			ResultSet blabbersResults = blabberQuery.executeQuery();
-			/* END EXAMPLE VULNERABILITY */
 
 			List<Blabber> blabbers = new ArrayList<Blabber>();
 			while (blabbersResults.next()) {
@@ -552,7 +583,13 @@ public class BlabController {
 			return Utils.redirect("login?target=blabbers");
 		}
 
-		logger.info("User is Logged In - continuing... UA=" + httpRequest.getHeader("User-Agent") + " U=" + username);
+		try {
+			String safeUserAgent = URLEncoder.encode(httpRequest.getHeader("User-Agent"), "UTF-8");
+			String safeUsername = URLEncoder.encode(username, "UTF-8");
+			logger.info("User is Logged In - continuing... UA=" + safeUserAgent + " U=" + safeUsername);
+		} catch (UnsupportedEncodingException e) {
+			logger.info("User is Logged In - continuing...");
+		}
 
 		if (command == null || command.isEmpty()) {
 			logger.info("Empty command provided...");
