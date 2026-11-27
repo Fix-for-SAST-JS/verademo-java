@@ -30,6 +30,10 @@ public class User implements Serializable {
 		return new User(userName, password, dateCreated, lastLogin, blabName, realName);
 	}
 
+	// Default constructor for Jackson deserialization
+	public User() {
+	}
+
 	public User(String userName, String password, Timestamp dateCreated, Timestamp lastLogin, String blabName,
 			String realName) {
 		this.userName = userName;
@@ -91,5 +95,25 @@ public class User implements Serializable {
 	public String getRealName()
 	{
 		return realName;
+	}
+
+	public void setRealName(String realName)
+	{
+		this.realName = realName;
+	}
+
+	public void setDateCreated(Timestamp dateCreated)
+	{
+		this.dateCreated = dateCreated;
+	}
+
+	public void setLastLogin(Timestamp lastLogin)
+	{
+		this.lastLogin = lastLogin;
+	}
+
+	public void setBlabName(String blabName)
+	{
+		this.blabName = blabName;
 	}
 }
