@@ -136,7 +136,7 @@ public class BlabController {
 		String template = "<li><div>" + "\t<div class=\"commenterImage\">" + "\t\t<img src=\"resources/images/%s.png\">"
 				+ "\t</div>" + "\t<div class=\"commentText\">" + "\t\t<p>%s</p>"
 				+ "\t\t<span class=\"date sub-text\">by %s on %s</span><br>"
-				+ "\t\t<span class=\"date sub-text\"><a href=\"blab?blabid=%d\">%d Comments</a></span>" + "\t</div>"
+				+ "\t\t<span class=\"date sub-text\"><a href=\"blab?blabid=%s\">%s Comments</a></span>" + "\t</div>"
 				+ "</div></li>";
 
 		int cnt, len;
@@ -168,12 +168,15 @@ public class BlabController {
 					String safeBlabName = Encode.forHtml(results.getString(2));
 					String safeDateString = Encode.forHtml(blab.getPostDateString());
 
+					String safeBlabId = Encode.forHtml(String.valueOf(results.getInt(6)));
+					String safeCommentCount = Encode.forHtml(String.valueOf(results.getInt(5)));
+
 					ret.append(String.format(template, safeUsername, // username
 							safeContent, // blab content
 							safeBlabName, // blab name
 							safeDateString, // timestamp
-							results.getInt(6), // blabID
-							results.getInt(5) // comment count
+							safeBlabId, // blabID
+							safeCommentCount // comment count
 					));
 				}
 			}
